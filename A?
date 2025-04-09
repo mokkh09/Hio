@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>قارئ صور PDF بالذكاء الاصطناعي</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.1/dist/tesseract.min.js"></script>
+  <style>
+    body { background: #111; color: #fff; font-family: sans-serif; padding: 20px; }
+    canvas { margin-bottom: 20px; border: 1px solid #555; }
+    .result { background: #222; padding: 10px; margin-bottom: 20px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+<h2>قارئ PDF بالذكاء الاصطناعي (OCR)</h2>
+<input type="file" id="upload" accept="application/pdf"><br><br>
+<div id="output"></div>
+
+<script>
+document.getElementById('upload').addEventListener('change', function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function () {
+    const typedarray = new Uint8Array(this.result);
+
+    pdfjsLib.getDocument({ data: typedarray }).promise.then(async function (pdf) {
+      const output = document.getElementById('output');
+      output.innerHTML = '';
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({ canvasContext: context, viewport }).promise;
+        output.appendChild(canvas);
+
+        // استخلاص النص من الصورة عبر OCR
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'result';
+        resultDiv.innerText = 'جارٍ تحليل النص...';
+        output.appendChild(resultDiv);
+
+        const dataURL = canvas.toDataURL();
+        Tesseract.recognize(dataURL, 'eng')  // استخدم 'ara' للغة العربية إذا كانت مدعومة
+          .then(({ data: { text } }) => {
+            resultDiv.innerText = text.trim() || '[لم يتم العثور على نص]';
+          });
+      }
+    });
+  };
+  reader.readAsArrayBuffer(file);
+});
+</script>
+
+</body>
+</html>
